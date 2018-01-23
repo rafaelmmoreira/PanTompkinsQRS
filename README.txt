@@ -1,0 +1,44 @@
+An ANSI-C implementation of the Pan-Tompkins Real-Time QRS Detection Algorithm
+Author: Rafael de Moura Moreira <rafaelmmoreira@gmail.com>
+License: MIT License
+Copyright (C) 2018
+
+USING THE ALGORITHM
+Just import the .c and .h to your project, or paste them in the same folder and include "panTompkins.h".
+To use the algorithm "as is", you must first call the init() function passing 2 arguments: the name of
+your input file (which must be a list of integers in ASCII) and the name of your output file (be careful,
+it's an existing file, it will be overwritten!).
+It will output a list of 0's and 1's, where 0 means a given sample didn't trigger a R-peak detection,
+while an 1 means it did.
+
+MODIFYING THE CODE
+The code was designed to be easy to change and port: your input source (file, serial comms etc), the
+input format (signed or unsigned int, float, double etc), sampling frequency, fine-tunings to the algorithm, 
+and so on.
+The .c file is well documented, with every meaningful line or chunk of code explained in the comments,
+besides a long description which suggests all the pertinent changes to make it work on different applications
+and systems.
+
+TESTING
+The code, "as is", should work on Windows and Linux for x86. A test input file (the lead A for patient 100 from
+the MIT-BIH database converted to ASCII) and the output for this signal are included in the examples folder.
+There's also a plot of the first 10000 samples (~27.8 seconds) plus the output. One can note on this plot two
+limitations from the algorithm: it takes about 2 R-R intervals to learn (before that, its thresholds are still
+adjusting and there are a couple of false positives), and the output is delayed by a few milisseconds due to 
+the filtering stages. After the first 2 seconds, the algorithm stabilizes. For patients with anomalous
+ECG signals, chances of false positives or missed detections increase. However, this algorithm is known for
+a very high precision.
+
+For further information about the data used on the test:
+https://www.physionet.org/physiobank/database/mitdb/  
+Moody GB, Mark RG. The impact of the MIT-BIH Arrhythmia Database. 
+IEEE Eng in Med and Biol 20(3):45-50 (May-June 2001). (PMID: 11446209)
+
+For further information about the algorithm, its details and its limitations:
+Pan, J., & Tompkins, W. J. (1985). A real-time QRS detection algorithm. 
+IEEE transactions on biomedical engineering, (3), 230-236.
+
+
+
+
+

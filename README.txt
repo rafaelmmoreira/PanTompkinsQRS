@@ -28,7 +28,9 @@ limitations from the algorithm: it takes about 2 R-R intervals to learn (before 
 adjusting and there are a couple of false positives), and the output is delayed by a few milisseconds due to 
 the filtering stages. After the first 2 seconds, the algorithm stabilizes. For patients with anomalous
 ECG signals, chances of false positives or missed detections increase. However, this algorithm is known for
-a very high precision.
+a very high precision. 
+I've also added (April 2019) another plot showing a few heartbeats from the original signal plus the output
+from the bandpass filter, the derivative, the squared derivative, the integral and the Pan-Tompkins classification.
 
 For further information about the data used on the test:
 https://www.physionet.org/physiobank/database/mitdb/  

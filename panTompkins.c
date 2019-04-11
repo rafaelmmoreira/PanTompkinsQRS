@@ -5,6 +5,16 @@
  * Author: Rafael de Moura Moreira <rafaelmmoreira@gmail.com>                    *
  * License: MIT License                                                          *
  * ------------------------------------------------------------------------------*
+ * ---------------------------------- HISTORY ---------------------------------- *
+ *    date   |    author    |                     description                    *
+ * ----------| -------------| ---------------------------------------------------*
+ * 2019/04/11| Rafael M. M. | - Fixed moving-window integral.                    *
+ *           |              | - Fixed how to find the correct sample with the    *
+ *           |              | last QRS.                                          *
+ *           |              | - Replaced constant value in code by its #define.  *
+ * 			 |              | - Added some casting on comparisons to get rid of  *
+ *           |              | compiler warnings.                                 *
+ * ------------------------------------------------------------------------------*
  * MIT License                                                                   *
  *                                                                               *
  * Copyright (c) 2018 Rafael de Moura Moreira                                    *
@@ -125,7 +135,8 @@
  *-------------------------------------------------------------------------------*
  */
 
-#define WINDOWSIZE 54   // Integrator window size, in samples. Recommended to use 150ms. So, use FS*0.15
+#define WINDOWSIZE 20   // Integrator window size, in samples. The article recommends 150ms. So, FS*0.15. 
+						// However, you should check empirically if the waveform looks ok.
 #define NOSAMPLE -32000 // An indicator that there are no more samples to read. Use an impossible value for a sample.
 #define FS 360          // Sampling frequency.
 #define BUFFSIZE 600    // The size of the buffers (in samples). Must fit more than 1.66 times an RR interval, which
@@ -248,7 +259,7 @@ void panTompkins()
 				squared[i] = squared[i+1];
 				integral[i] = integral[i+1];
 			}
-			current = 499;
+			current = BUFFSIZE - 1;
 
 		}
 		else
@@ -261,8 +272,6 @@ void panTompkins()
 		if (signal[current] == NOSAMPLE)
 			break;
 		sample++; // Update sample counter
-
-		qrs = false;
 
 		// DC Block filter
 		// This was not proposed on the original paper.
@@ -315,15 +324,18 @@ void panTompkins()
 		// Implemented as proposed by the original paper.
 		// y(nT) = (1/N)[x(nT - (N - 1)T) + x(nT - (N - 2)T) + ... x(nT)]
 		// WINDOWSIZE, in samples, must be defined so that the window is ~150ms.
+		
+		integral[current] = 0;
 		for (i = 0; i < WINDOWSIZE; i++)
 		{
-			integral[current] = 0;
-			if (current >= i)
-				integral[current] += integral[current - i];
+			if (current >= (dataType)i)
+				integral[current] += highpass[current - i];
 			else
 				break;
-		}
-		integral[current] /= i;
+		}		
+		integral[current] /= (dataType)i;
+
+		qrs = false;
 
 		// If the current signal is above one of the thresholds (integral or filtered signal), it's a peak candidate.
         if (integral[current] >= threshold_i1 || highpass[current] >= threshold_f1)
@@ -341,7 +353,7 @@ void panTompkins()
 			    // If it respects the 200ms latency, but it doesn't respect the 360ms latency, we check the slope.
 				if (sample <= lastQRS + 0.36*FS)
 				{
-				    if (squared[current] < lastSlope/2)
+				    if (squared[current] < (dataType)(lastSlope/2))
                     {
                         qrs = false;
                     }
@@ -363,7 +375,7 @@ void panTompkins()
 				// If it was above both thresholds and respects both latency periods, it certainly is a R peak.
 				else
 				{
-				    if (squared[current] > lastSlope/2)
+				    if (squared[current] > (dataType)(lastSlope/2))
                     {
                         spk_i = 0.125*peak_i + 0.875*spk_i;
                         threshold_i1 = npk_i + 0.25*(spk_i - npk_i);
@@ -449,9 +461,10 @@ void panTompkins()
 		else
 		{
 		    // If no R-peak was detected for too long, use the lighter thresholds and do a back search.
-			if (sample - lastQRS > rrmiss)
+			// However, the back search must respect the 200ms limit.
+			if ((sample - lastQRS > (long unsigned int)rrmiss) && (sample > lastQRS + 0.2*FS))
 			{
-				for (i = current - (sample - lastQRS); i < current; i++)
+				for (i = current - (sample - lastQRS) + 0.2*FS; i < (long unsigned int)current; i++)
 				{
 					if ( (integral[i] > threshold_i2) && (highpass[i] > threshold_f2))
 					{
@@ -544,4 +557,3 @@ void panTompkins()
 	fclose(fin);
 	fclose(fout);
 }
-

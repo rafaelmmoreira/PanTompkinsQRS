@@ -1,0 +1,9 @@
+ CHANGE LOG
+ 
+ Date:   2019/04/11
+ Author: Rafael de Moura Moreira
+ Changes:
+ - Fixed moving-window integral.
+ - Fixed how to find the correct sample with the last QRS.
+ - Replaced constant value in code by its #define.
+ - Added some casting on comparisons to get rid of compiler warnings.

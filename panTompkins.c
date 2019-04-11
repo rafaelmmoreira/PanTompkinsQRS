@@ -12,7 +12,7 @@
  *           |              | - Fixed how to find the correct sample with the    *
  *           |              | last QRS.                                          *
  *           |              | - Replaced constant value in code by its #define.  *
- * 			 |              | - Added some casting on comparisons to get rid of  *
+ *           |              | - Added some casting on comparisons to get rid of  *
  *           |              | compiler warnings.                                 *
  * ------------------------------------------------------------------------------*
  * MIT License                                                                   *

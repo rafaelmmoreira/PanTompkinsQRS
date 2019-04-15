@@ -14,6 +14,8 @@
  *           |              | - Replaced constant value in code by its #define.  *
  *           |              | - Added some casting on comparisons to get rid of  *
  *           |              | compiler warnings.                                 *
+ * 2019/04/15| Rafael M. M. | - Removed delay added to the output by the filters.*
+ *           |              | - Fixed multiple detection of the same peak.       *
  * ------------------------------------------------------------------------------*
  * MIT License                                                                   *
  *                                                                               *
@@ -141,6 +143,10 @@
 #define FS 360          // Sampling frequency.
 #define BUFFSIZE 600    // The size of the buffers (in samples). Must fit more than 1.66 times an RR interval, which
                         // typically could be around 1 second.
+
+#define DELAY 22		// Delay introduced by the filters. Filter only output samples after this one.
+						// Set to 0 if you want to keep the delay. Fixing the delay results in DELAY less samples 
+						// in the final end result.
 
 #include "panTompkins.h"
 #include <stdio.h>      // Remove if not using the standard file functions.
@@ -402,7 +408,8 @@ void panTompkins()
 				threshold_f1 = npk_f + 0.25*(spk_f - npk_f);
                 threshold_f2 = 0.5*threshold_f1;
                 qrs = false;
-                output(qrs);
+				if (sample > DELAY)
+                	output(qrs);
                 continue;
             }
 
@@ -456,6 +463,9 @@ void panTompkins()
 					threshold_f1 /= 2;
 				}
 			}
+			if (sample > DELAY)
+				output(qrs);
+			continue;
 		}
 		// If no R-peak was detected, it's important to check how long it's been since the last detection.
 		else
@@ -550,8 +560,10 @@ void panTompkins()
 		// The current implementation outputs '0' for every sample where no peak was detected,
 		// and '1' for every sample where a peak was detected. It should be changed to fit
 		// the desired application.
-		output(qrs);
-	} while(signal[current] != NOSAMPLE);
+		// The 'if' accounts for the delay introduced by the filters. 
+		if (sample > DELAY)
+			output(qrs);
+	} while (signal[current] != NOSAMPLE);
 
 	// These last two lines must be deleted if you are not working with files.
 	fclose(fin);

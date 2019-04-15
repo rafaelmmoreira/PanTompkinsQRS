@@ -1,5 +1,11 @@
  CHANGE LOG
- 
+
+ Date:   2019/04/15
+ Author: Rafael de Moura Moreira
+ Changes:
+ - Removed delay added by the filters.
+ - Another fix relating to the last QRS, preventing multiple detections of the same peak.
+
  Date:   2019/04/11
  Author: Rafael de Moura Moreira
  Changes:

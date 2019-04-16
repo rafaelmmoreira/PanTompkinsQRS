@@ -36,6 +36,7 @@
 typedef int dataType;
 
 void panTompkins();
+bool panTompkinsSample();
 void init(char file_in[], char file_out[]);
 
 #endif

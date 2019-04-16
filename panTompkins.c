@@ -16,6 +16,8 @@
  *           |              | compiler warnings.                                 *
  * 2019/04/15| Rafael M. M. | - Removed delay added to the output by the filters.*
  *           |              | - Fixed multiple detection of the same peak.       *
+ * 2019/04/16| Rafael M. M. | - Added output buffer to correctly output a peak   *
+ *           |              | found by backsearching using the 2nd thresholds.   *
  * ------------------------------------------------------------------------------*
  * MIT License                                                                   *
  *                                                                               *
@@ -204,7 +206,8 @@ void panTompkins()
 {
     // The signal array is where the most recent samples are kept. The other arrays are the outputs of each
     // filtering module: DC Block, low pass, high pass, integral etc.
-	dataType signal[BUFFSIZE], dcblock[BUFFSIZE], lowpass[BUFFSIZE], highpass[BUFFSIZE], derivative[BUFFSIZE], squared[BUFFSIZE], integral[BUFFSIZE];
+	// The output is a buffer where we can change a previous result (using a back search) before outputting.
+	dataType signal[BUFFSIZE], dcblock[BUFFSIZE], lowpass[BUFFSIZE], highpass[BUFFSIZE], derivative[BUFFSIZE], squared[BUFFSIZE], integral[BUFFSIZE], outputSignal[BUFFSIZE];
 
 	// rr1 holds the last 8 RR intervals. rr2 holds the last 8 RR intervals between rrlow and rrhigh.
 	// rravg1 is the rr1 average, rr2 is the rravg2. rrlow = 0.92*rravg2, rrhigh = 1.08*rravg2 and rrmiss = 1.16*rravg2.
@@ -264,9 +267,9 @@ void panTompkins()
 				derivative[i] = derivative[i+1];
 				squared[i] = squared[i+1];
 				integral[i] = integral[i+1];
+				outputSignal[i] = outputSignal[i+1];
 			}
 			current = BUFFSIZE - 1;
-
 		}
 		else
 		{
@@ -408,8 +411,9 @@ void panTompkins()
 				threshold_f1 = npk_f + 0.25*(spk_f - npk_f);
                 threshold_f2 = 0.5*threshold_f1;
                 qrs = false;
-				if (sample > DELAY)
-                	output(qrs);
+				outputSignal[current] = qrs;
+				if (sample > DELAY + BUFFSIZE)
+                	output(outputSignal[0]);
                 continue;
             }
 
@@ -463,9 +467,6 @@ void panTompkins()
 					threshold_f1 /= 2;
 				}
 			}
-			if (sample > DELAY)
-				output(qrs);
-			continue;
 		}
 		// If no R-peak was detected, it's important to check how long it's been since the last detection.
 		else
@@ -487,7 +488,53 @@ void panTompkins()
 						lastSlope = squared[i];
 						threshold_f1 = npk_f + 0.25*(spk_f - npk_f);
 						threshold_f2 = 0.5*threshold_f1;
-						qrs = true;
+						// If a signal peak was detected on the back search, the RR attributes must be updated.
+						// This is the same thing done when a peak is detected on the first try.
+						//RR Average 1
+						rravg1 = 0;
+						for (j = 0; j < 7; j++)
+						{
+							rr1[j] = rr1[j+1];
+							rravg1 += rr1[j];
+						}
+						rr1[7] = sample - i - lastQRS;
+						lastQRS = sample - i;
+						outputSignal[current-lastQRS] = true;
+						rravg1 += rr1[7];
+						rravg1 *= 0.125;
+
+						//RR Average 2
+						if ( (rr1[7] >= rrlow) && (rr1[7] <= rrhigh) )
+						{
+							rravg2 = 0;
+							for (i = 0; i < 7; i++)
+							{
+								rr2[i] = rr2[i+1];
+								rravg2 += rr2[i];
+							}
+							rr2[7] = rr1[7];
+							rravg2 += rr2[7];
+							rravg2 *= 0.125;
+							rrlow = 0.92*rravg2;
+							rrhigh = 1.16*rravg2;
+							rrmiss = 1.66*rravg2;
+						}
+
+						prevRegular = regular;
+						if (rravg1 == rravg2)
+						{
+							regular = true;
+						}
+						else
+						{
+							regular = false;
+							if (prevRegular)
+							{
+								threshold_i1 /= 2;
+								threshold_f1 /= 2;
+							}
+						}
+
 						break;
 					}
 				}
@@ -508,62 +555,22 @@ void panTompkins()
 					threshold_f2 = 0.5*threshold_f1;
 				}
 			}
-			// If a signal peak was detected on the back search, the RR attributes must be updated.
-			// This is the same thing done when a peak is detected on the first try.
-			else
-			{
-				//RR Average 1
-				rravg1 = 0;
-				for (j = 0; j < 7; j++)
-				{
-					rr1[j] = rr1[j+1];
-					rravg1 += rr1[j];
-				}
-				rr1[7] = sample - i - lastQRS;
-				lastQRS = sample - i;
-				rravg1 += rr1[7];
-				rravg1 *= 0.125;
-
-				//RR Average 2
-				if ( (rr1[7] >= rrlow) && (rr1[7] <= rrhigh) )
-				{
-					rravg2 = 0;
-					for (i = 0; i < 7; i++)
-					{
-						rr2[i] = rr2[i+1];
-						rravg2 += rr2[i];
-					}
-					rr2[7] = rr1[7];
-					rravg2 += rr2[7];
-					rravg2 *= 0.125;
-					rrlow = 0.92*rravg2;
-					rrhigh = 1.16*rravg2;
-					rrmiss = 1.66*rravg2;
-				}
-
-				prevRegular = regular;
-				if (rravg1 == rravg2)
-				{
-					regular = true;
-				}
-				else
-				{
-					regular = false;
-					if (prevRegular)
-					{
-						threshold_i1 /= 2;
-						threshold_f1 /= 2;
-					}
-				}
-			}
 		}
 		// The current implementation outputs '0' for every sample where no peak was detected,
 		// and '1' for every sample where a peak was detected. It should be changed to fit
 		// the desired application.
-		// The 'if' accounts for the delay introduced by the filters. 
-		if (sample > DELAY)
-			output(qrs);
+		// The 'if' accounts for the delay introduced by the filters: we only start outputting after the delay. 
+		// However, it updates a few samples back from the buffer. The reason is that if we update the detection
+		// for the current sample, we might miss a peak that could've been found later by backsearching using
+		// lighter thresholds. The final waveform output does match the original signal, though.
+		outputSignal[current] = qrs;
+		if (sample > DELAY + BUFFSIZE)
+			output(outputSignal[0]);
 	} while (signal[current] != NOSAMPLE);
+
+	// Output the last remaining samples on the buffer
+	for (i = 1; i < BUFFSIZE; i++)
+		output(outputSignal[i]);
 
 	// These last two lines must be deleted if you are not working with files.
 	fclose(fin);

@@ -1,5 +1,10 @@
  CHANGE LOG
 
+  Date:   2019/04/16
+ Author: Rafael de Moura Moreira
+ Changes:
+ - Added output buffer to correctly output a peak found by backsearching using the 2nd thresholds.
+
  Date:   2019/04/15
  Author: Rafael de Moura Moreira
  Changes:

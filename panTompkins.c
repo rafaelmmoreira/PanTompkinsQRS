@@ -150,11 +150,11 @@
 						// Set to 0 if you want to keep the delay. Fixing the delay results in DELAY less samples 
 						// in the final end result.
 
+typedef enum {false, true} bool;
+
 #include "panTompkins.h"
 #include <stdio.h>      // Remove if not using the standard file functions.
 
-
-typedef enum {false, true} bool;
 
 FILE *fin, *fout;       // Remove them if not using files and <stdio.h>.
 

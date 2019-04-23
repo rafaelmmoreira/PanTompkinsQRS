@@ -34,6 +34,7 @@
 #define PAN_TOMPKINS
 
 typedef int dataType;
+typedef enum {false, true} bool;
 
 void panTompkins();
 bool panTompkinsSample();

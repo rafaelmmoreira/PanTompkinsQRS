@@ -17,7 +17,10 @@
  * 2019/04/15| Rafael M. M. | - Removed delay added to the output by the filters.*
  *           |              | - Fixed multiple detection of the same peak.       *
  * 2019/04/16| Rafael M. M. | - Added output buffer to correctly output a peak   *
- *           |              | found by backsearching using the 2nd thresholds.   *
+ *           |              | found by back searching using the 2nd thresholds.  *
+ * 2019/04/23| Rafael M. M. | - Improved comparison of slopes.                   *
+ *           |              | - Fixed formula to obtain the correct sample from  *
+ *           |              | the buffer on the back search.                     *
  * ------------------------------------------------------------------------------*
  * MIT License                                                                   *
  *                                                                               *
@@ -108,6 +111,14 @@
  * val. Heart beats should be between 60 and 80 BPS for humans. So, considering  *
  * 1.66 times 1 second should be safe.                                           *
  *                                                                               *
+ * - #define DELAY 22                                                            *
+ * The delay introduced to the output signal. The first DELAY samples will be ig-*
+ * nored, as the filters add a delay to the output signal, causing a mismatch    *
+ * between the input and output signals. It's easier to compare them this way.   *
+ * If you need them both to have the same amount of samples, set this to 0. If   *
+ * you're working with different filters and/or sampling rates, you might need to*
+ * adjust this value.                                                            *
+ *                                                                               *
  * - #include <stdio.h>                                                          *
  * The file, as it is, both gets its inputs and sends its outputs to files. It   *
  * works on both Windows and Linux. If your source isn't a file, and/or your sys-*
@@ -139,7 +150,7 @@
  *-------------------------------------------------------------------------------*
  */
 
-#define WINDOWSIZE 20   // Integrator window size, in samples. The article recommends 150ms. So, FS*0.15. 
+#define WINDOWSIZE 20   // Integrator window size, in samples. The article recommends 150ms. So, FS*0.15.
 						// However, you should check empirically if the waveform looks ok.
 #define NOSAMPLE -32000 // An indicator that there are no more samples to read. Use an impossible value for a sample.
 #define FS 360          // Sampling frequency.
@@ -147,14 +158,12 @@
                         // typically could be around 1 second.
 
 #define DELAY 22		// Delay introduced by the filters. Filter only output samples after this one.
-						// Set to 0 if you want to keep the delay. Fixing the delay results in DELAY less samples 
+						// Set to 0 if you want to keep the delay. Fixing the delay results in DELAY less samples
 						// in the final end result.
 
 #include "panTompkins.h"
 #include <stdio.h>      // Remove if not using the standard file functions.
 
-
-typedef enum {false, true} bool;
 
 FILE *fin, *fout;       // Remove them if not using files and <stdio.h>.
 
@@ -164,7 +173,7 @@ FILE *fin, *fout;       // Remove them if not using files and <stdio.h>.
     a serial connection.
     Remember to update its parameters on the panTompkins.h file as well.
 */
-void init(char file_in[], char file_out[])
+void init(const char file_in[], const char file_out[])
 {
 	fin = fopen(file_in, "r");
 	fout = fopen(file_out, "w+");
@@ -220,8 +229,9 @@ void panTompkins()
 	// sample counts how many samples have been read so far.
 	// lastQRS stores which was the last sample read when the last R sample was triggered.
 	// lastSlope stores the value of the squared slope when the last R sample was triggered.
+	// currentSlope helps calculate the max. square slope for the present sample.
 	// These are all long unsigned int so that very long signals can be read without messing the count.
-	long unsigned int i, j, sample = 0, lastQRS = 0, lastSlope = 0;
+	long unsigned int i, j, sample = 0, lastQRS = 0, lastSlope = 0, currentSlope = 0;
 
 	// This variable is used as an index to work with the signal buffers. If the buffers still aren't
 	// completely filled, it shows the last filled position. Once the buffers are full, it'll always
@@ -333,7 +343,7 @@ void panTompkins()
 		// Implemented as proposed by the original paper.
 		// y(nT) = (1/N)[x(nT - (N - 1)T) + x(nT - (N - 2)T) + ... x(nT)]
 		// WINDOWSIZE, in samples, must be defined so that the window is ~150ms.
-		
+
 		integral[current] = 0;
 		for (i = 0; i < WINDOWSIZE; i++)
 		{
@@ -341,7 +351,7 @@ void panTompkins()
 				integral[current] += highpass[current - i];
 			else
 				break;
-		}		
+		}
 		integral[current] /= (dataType)i;
 
 		qrs = false;
@@ -357,12 +367,19 @@ void panTompkins()
 		if ((integral[current] >= threshold_i1) && (highpass[current] >= threshold_f1))
 		{
 			// There's a 200ms latency. If the new peak respects this condition, we can keep testing.
-			if (sample > lastQRS + 0.2*FS)
+			if (sample > lastQRS + FS/5)
 			{
 			    // If it respects the 200ms latency, but it doesn't respect the 360ms latency, we check the slope.
-				if (sample <= lastQRS + 0.36*FS)
+				if (sample <= lastQRS + (long unsigned int)(0.36*FS))
 				{
-				    if (squared[current] < (dataType)(lastSlope/2))
+				    // The squared slope is "M" shaped. So we have to check nearby samples to make sure we're really looking
+				    // at its peak value, rather than a low one.
+				    currentSlope = 0;
+				    for (j = current - 10; j <= current; j++)
+                        if (squared[j] > currentSlope)
+                            currentSlope = squared[j];
+
+				    if (currentSlope <= (dataType)(lastSlope/2))
                     {
                         qrs = false;
                     }
@@ -377,26 +394,28 @@ void panTompkins()
                         threshold_f1 = npk_f + 0.25*(spk_f - npk_f);
                         threshold_f2 = 0.5*threshold_f1;
 
-                        lastSlope = squared[current];
+                        lastSlope = currentSlope;
                         qrs = true;
                     }
 				}
 				// If it was above both thresholds and respects both latency periods, it certainly is a R peak.
 				else
 				{
-				    if (squared[current] > (dataType)(lastSlope/2))
-                    {
-                        spk_i = 0.125*peak_i + 0.875*spk_i;
-                        threshold_i1 = npk_i + 0.25*(spk_i - npk_i);
-                        threshold_i2 = 0.5*threshold_i1;
+				    currentSlope = 0;
+                    for (j = current - 10; j <= current; j++)
+                        if (squared[j] > currentSlope)
+                            currentSlope = squared[j];
 
-                        spk_f = 0.125*peak_f + 0.875*spk_f;
-                        threshold_f1 = npk_f + 0.25*(spk_f - npk_f);
-                        threshold_f2 = 0.5*threshold_f1;
+                    spk_i = 0.125*peak_i + 0.875*spk_i;
+                    threshold_i1 = npk_i + 0.25*(spk_i - npk_i);
+                    threshold_i2 = 0.5*threshold_i1;
 
-                        lastSlope = squared[current];
-                        qrs = true;
-                    }
+                    spk_f = 0.125*peak_f + 0.875*spk_f;
+                    threshold_f1 = npk_f + 0.25*(spk_f - npk_f);
+                    threshold_f2 = 0.5*threshold_f1;
+
+                    lastSlope = currentSlope;
+                    qrs = true;
 				}
 			}
 			// If the new peak doesn't respect the 200ms latency, it's noise. Update thresholds and move on to the next sample.
@@ -472,73 +491,95 @@ void panTompkins()
 		else
 		{
 		    // If no R-peak was detected for too long, use the lighter thresholds and do a back search.
-			// However, the back search must respect the 200ms limit.
-			if ((sample - lastQRS > (long unsigned int)rrmiss) && (sample > lastQRS + 0.2*FS))
+			// However, the back search must respect the 200ms limit and the 360ms one (check the slope).
+			if ((sample - lastQRS > (long unsigned int)rrmiss) && (sample > lastQRS + FS/5))
 			{
-				for (i = current - (sample - lastQRS) + 0.2*FS; i < (long unsigned int)current; i++)
+				for (i = current - (sample - lastQRS) + FS/5; i < (long unsigned int)current; i++)
 				{
 					if ( (integral[i] > threshold_i2) && (highpass[i] > threshold_f2))
 					{
-						peak_i = integral[i];
-						peak_f = highpass[i];
-						spk_i = 0.25*peak_i+ 0.75*spk_i;
-						spk_f = 0.25*peak_f + 0.75*spk_f;
-						threshold_i1 = npk_i + 0.25*(spk_i - npk_i);
-						threshold_i2 = 0.5*threshold_i1;
-						lastSlope = squared[i];
-						threshold_f1 = npk_f + 0.25*(spk_f - npk_f);
-						threshold_f2 = 0.5*threshold_f1;
-						// If a signal peak was detected on the back search, the RR attributes must be updated.
-						// This is the same thing done when a peak is detected on the first try.
-						//RR Average 1
-						rravg1 = 0;
-						for (j = 0; j < 7; j++)
-						{
-							rr1[j] = rr1[j+1];
-							rravg1 += rr1[j];
-						}
-						rr1[7] = sample - i - lastQRS;
-						lastQRS = sample - i;
-						outputSignal[current-lastQRS] = true;
-						rravg1 += rr1[7];
-						rravg1 *= 0.125;
+					    currentSlope = 0;
+                        for (j = i - 10; j <= i; j++)
+                            if (squared[j] > currentSlope)
+                                currentSlope = squared[j];
 
-						//RR Average 2
-						if ( (rr1[7] >= rrlow) && (rr1[7] <= rrhigh) )
-						{
-							rravg2 = 0;
-							for (i = 0; i < 7; i++)
-							{
-								rr2[i] = rr2[i+1];
-								rravg2 += rr2[i];
-							}
-							rr2[7] = rr1[7];
-							rravg2 += rr2[7];
-							rravg2 *= 0.125;
-							rrlow = 0.92*rravg2;
-							rrhigh = 1.16*rravg2;
-							rrmiss = 1.66*rravg2;
-						}
+                        if ((currentSlope < (dataType)(lastSlope/2)) && (i + sample) < lastQRS + 0.36*lastQRS)
+                        {
+                            qrs = false;
+                        }
+                        else
+                        {
+                            peak_i = integral[i];
+                            peak_f = highpass[i];
+                            spk_i = 0.25*peak_i+ 0.75*spk_i;
+                            spk_f = 0.25*peak_f + 0.75*spk_f;
+                            threshold_i1 = npk_i + 0.25*(spk_i - npk_i);
+                            threshold_i2 = 0.5*threshold_i1;
+                            lastSlope = currentSlope;
+                            threshold_f1 = npk_f + 0.25*(spk_f - npk_f);
+                            threshold_f2 = 0.5*threshold_f1;
+                            // If a signal peak was detected on the back search, the RR attributes must be updated.
+                            // This is the same thing done when a peak is detected on the first try.
+                            //RR Average 1
+                            rravg1 = 0;
+                            for (j = 0; j < 7; j++)
+                            {
+                                rr1[j] = rr1[j+1];
+                                rravg1 += rr1[j];
+                            }
+                            rr1[7] = sample - (current - i) - lastQRS;
+                            qrs = true;
+                            lastQRS = sample - (current - i);
+                            rravg1 += rr1[7];
+                            rravg1 *= 0.125;
 
-						prevRegular = regular;
-						if (rravg1 == rravg2)
-						{
-							regular = true;
-						}
-						else
-						{
-							regular = false;
-							if (prevRegular)
-							{
-								threshold_i1 /= 2;
-								threshold_f1 /= 2;
-							}
-						}
+                            //RR Average 2
+                            if ( (rr1[7] >= rrlow) && (rr1[7] <= rrhigh) )
+                            {
+                                rravg2 = 0;
+                                for (i = 0; i < 7; i++)
+                                {
+                                    rr2[i] = rr2[i+1];
+                                    rravg2 += rr2[i];
+                                }
+                                rr2[7] = rr1[7];
+                                rravg2 += rr2[7];
+                                rravg2 *= 0.125;
+                                rrlow = 0.92*rravg2;
+                                rrhigh = 1.16*rravg2;
+                                rrmiss = 1.66*rravg2;
+                            }
 
-						break;
-					}
+                            prevRegular = regular;
+                            if (rravg1 == rravg2)
+                            {
+                                regular = true;
+                            }
+                            else
+                            {
+                                regular = false;
+                                if (prevRegular)
+                                {
+                                    threshold_i1 /= 2;
+                                    threshold_f1 /= 2;
+                                }
+                            }
+
+                            break;
+                        }
+                    }
 				}
+
+				if (qrs)
+                {
+                    outputSignal[current] = false;
+                    outputSignal[i] = true;
+                    if (sample > DELAY + BUFFSIZE)
+                        output(outputSignal[0]);
+                    continue;
+                }
 			}
+
 			// Definitely no signal peak was detected.
 			if (!qrs)
 			{
@@ -559,7 +600,7 @@ void panTompkins()
 		// The current implementation outputs '0' for every sample where no peak was detected,
 		// and '1' for every sample where a peak was detected. It should be changed to fit
 		// the desired application.
-		// The 'if' accounts for the delay introduced by the filters: we only start outputting after the delay. 
+		// The 'if' accounts for the delay introduced by the filters: we only start outputting after the delay.
 		// However, it updates a few samples back from the buffer. The reason is that if we update the detection
 		// for the current sample, we might miss a peak that could've been found later by backsearching using
 		// lighter thresholds. The final waveform output does match the original signal, though.

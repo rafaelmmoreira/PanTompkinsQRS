@@ -25,10 +25,12 @@ The code, "as is", should work on Windows and Linux for x86. A test input file (
 the MIT-BIH database converted to ASCII) and the output for this signal are included in the examples folder.
 There's also a plot of the first 10000 samples (~27.8 seconds) plus the output. One can note on this plot two
 limitations from the algorithm: it takes about 2 R-R intervals to learn (before that, its thresholds are still
-adjusting and there are a couple of false positives), and the output is delayed by a few milisseconds due to 
-the filtering stages. After the first 2 seconds, the algorithm stabilizes. For patients with anomalous
-ECG signals, chances of false positives or missed detections increase. However, this algorithm is known for
-a very high precision. 
+adjusting and there are a couple of false positives). After the first 2 seconds, the algorithm stabilizes. For 
+patients with anomalous ECG signals, chances of false positives or missed detections increase. However, this 
+algorithm is known for a very high precision. 
+Also, the output is delayed by a few milisseconds due to the filtering stages. A fix has been added by ignoring
+the first few samples so that the input and output signals' peaks match one another. The down side is missing a
+few samples.
 I've also added (April 2019) another plot showing a few heartbeats from the original signal plus the output
 from the bandpass filter, the derivative, the squared derivative, the integral and the Pan-Tompkins classification.
 

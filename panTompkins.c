@@ -348,7 +348,7 @@ void panTompkins()
 		for (i = 0; i < WINDOWSIZE; i++)
 		{
 			if (current >= (dataType)i)
-				integral[current] += highpass[current - i];
+				integral[current] += squared[current - i];
 			else
 				break;
 		}

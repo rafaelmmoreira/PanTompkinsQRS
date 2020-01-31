@@ -1,6 +1,11 @@
  CHANGE LOG
 
-  Date:   2019/04/16
+ Date: 
+ Author: effakcuL 
+ Changes:2019/01/08
+ - Changed source for integral computation from highpass filter output to squared derivative. 
+
+ Date:   2019/04/16
  Author: Rafael de Moura Moreira
  Changes:
  - Added output buffer to correctly output a peak found by backsearching using the 2nd thresholds.

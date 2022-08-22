@@ -124,8 +124,8 @@
  * - #define MOVING_AVG_LEN 5													 *
  * Sets the length of the moving-average window array. For R peak detection      *
  * this can be very small, as the peak takes place so quickly. This change       *
- * makes this algorithm perform better with ECGs that have a moving baseline     *
- * such as the AHA ECG database, without impacting detection performance.        *
+ * makes this algorithm converge significantly faster for ECGs that have 		 *
+ * a moving baseline such as the AHA ECG database.						         *
  *                                                                               *
  * - #include <stdio.h>                                                          *
  * The file, as it is, both gets its inputs and sends its outputs to files. It   *

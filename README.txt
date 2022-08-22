@@ -2,7 +2,7 @@ An ANSI-C implementation of the Pan-Tompkins Real-Time QRS Detection Algorithm
 Author: Rafael de Moura Moreira <rafaelmmoreira@gmail.com>
         https://github.com/rafaelmmoreira/PanTompkinsQRS
 License: MIT License
-Copyright (C) 2018-2020
+Copyright (C) 2018-2022
 
 USING THE ALGORITHM
 Just import the .c and .h to your project, or paste them in the same folder and include "panTompkins.h".

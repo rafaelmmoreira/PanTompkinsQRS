@@ -3,7 +3,7 @@
  Date: 
  Author: Thor Tronrud 
  Changes:2022/08/22
- - Added moving average filter for better handling of noisy ECGs 
+ - Added moving average filter to significantly improve convergence for ECGs with changing baselines 
  
  Date: 
  Author: effakcuL 

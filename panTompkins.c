@@ -8,6 +8,8 @@
  * ---------------------------------- HISTORY ---------------------------------- *
  *    date   |    author    |                     description                    *
  * ----------| -------------| ---------------------------------------------------*
+ * 2022/08/22| Thor J. T.   | - Added moving window filter for ECG 				 *
+ * 			 |			    |													 *
  * 2019/04/11| Rafael M. M. | - Fixed moving-window integral.                    *
  *           |              | - Fixed how to find the correct sample with the    *
  *           |              | last QRS.                                          *
@@ -228,7 +230,7 @@ void panTompkins()
 	dataType signal[BUFFSIZE], dcblock[BUFFSIZE], lowpass[BUFFSIZE], highpass[BUFFSIZE], derivative[BUFFSIZE], squared[BUFFSIZE], integral[BUFFSIZE], outputSignal[BUFFSIZE];
 	
 	//An array to store the moving average of the ECG signal
-	//
+	//use macros to completely remove if not in use
 	#if MOVING_AVG_LEN > 1
 	dataType moving_avg_window[MOVING_AVG_LEN];
 	dataType mov_avg = 0;
@@ -315,6 +317,9 @@ void panTompkins()
 		#if MOVING_AVG_LEN > 1
 		//now that we've gathered the latest value, let's add it to the end of the 
 		//filter.
+		//A more elegant approach would be to convolve (with FFT), however
+		//this is better-suited to embedded contexts where memory is scarce,
+		//and doesn't rely on any data from the future of the stream
 		moving_avg_window[MOVING_AVG_LEN-1] = signal[current];
 		if(sample > (unsigned long int)MOVING_AVG_LEN && signal[current] != NOSAMPLE)
 		{
@@ -663,9 +668,4 @@ void panTompkins()
 	// These last two lines must be deleted if you are not working with files.
 	fclose(fin);
 	fclose(fout);
-}
-
-int main()
-{
-	return 0;
 }

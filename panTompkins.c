@@ -165,7 +165,7 @@
 #define BUFFSIZE 600    // The size of the buffers (in samples). Must fit more than 1.66 times an RR interval, which
                         // typically could be around 1 second.
 
-#define DELAY 22		// Delay introduced by the filters. Filter only output samples after this one.
+#define DELAY 14		// Delay introduced by the filters. Filter only output samples after this one.
 						// Set to 0 if you want to keep the delay. Fixing the delay results in DELAY less samples
 						// in the final end result.
 

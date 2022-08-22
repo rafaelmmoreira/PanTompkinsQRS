@@ -1,6 +1,11 @@
  CHANGE LOG
 
  Date: 
+ Author: Thor Tronrud 
+ Changes:2022/08/22
+ - Added moving average filter for better handling of noisy ECGs 
+ 
+ Date: 
  Author: effakcuL 
  Changes:2019/01/08
  - Changed source for integral computation from highpass filter output to squared derivative. 

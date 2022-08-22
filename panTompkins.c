@@ -117,7 +117,13 @@
  * between the input and output signals. It's easier to compare them this way.   *
  * If you need them both to have the same amount of samples, set this to 0. If   *
  * you're working with different filters and/or sampling rates, you might need to*
- * adjust this value.                                                            *
+ * adjust this value.   													     *
+ * 																				 *
+ * - #define MOVING_AVG_LEN 5													 *
+ * Sets the length of the moving-average window array. For R peak detection      *
+ * this can be very small, as the peak takes place so quickly. This change       *
+ * makes this algorithm perform better with ECGs that have a moving baseline     *
+ * such as the AHA ECG database, without impacting detection performance.        *
  *                                                                               *
  * - #include <stdio.h>                                                          *
  * The file, as it is, both gets its inputs and sends its outputs to files. It   *
@@ -161,6 +167,9 @@
 						// Set to 0 if you want to keep the delay. Fixing the delay results in DELAY less samples
 						// in the final end result.
 
+#define MOVING_AVG_LEN 5 // Size of the moving average filter to remove baseline drift and noise on a scale 
+						 // larger than the R-peak
+
 #include "panTompkins.h"
 #include <stdio.h>      // Remove if not using the standard file functions.
 
@@ -173,7 +182,7 @@ FILE *fin, *fout;       // Remove them if not using files and <stdio.h>.
     a serial connection.
     Remember to update its parameters on the panTompkins.h file as well.
 */
-void init(const char file_in[], const char file_out[])
+void init(char file_in[], char file_out[])
 {
 	fin = fopen(file_in, "r");
 	fout = fopen(file_out, "w+");
@@ -217,6 +226,17 @@ void panTompkins()
     // filtering module: DC Block, low pass, high pass, integral etc.
 	// The output is a buffer where we can change a previous result (using a back search) before outputting.
 	dataType signal[BUFFSIZE], dcblock[BUFFSIZE], lowpass[BUFFSIZE], highpass[BUFFSIZE], derivative[BUFFSIZE], squared[BUFFSIZE], integral[BUFFSIZE], outputSignal[BUFFSIZE];
+	
+	//An array to store the moving average of the ECG signal
+	//
+	#if MOVING_AVG_LEN > 1
+	dataType moving_avg_window[MOVING_AVG_LEN];
+	dataType mov_avg = 0;
+	for(k = 0; k < MOVING_AVG_LEN; k++)
+	{
+		moving_avg_window[k] = 0;
+	}
+	#endif
 
 	// rr1 holds the last 8 RR intervals. rr2 holds the last 8 RR intervals between rrlow and rrhigh.
 	// rravg1 is the rr1 average, rr2 is the rravg2. rrlow = 0.92*rravg2, rrhigh = 1.08*rravg2 and rrmiss = 1.16*rravg2.
@@ -225,13 +245,13 @@ void panTompkins()
 	// a long interval, the thresholds must be adjusted.
 	int rr1[8], rr2[8], rravg1, rravg2, rrlow = 0, rrhigh = 0, rrmiss = 0;
 
-	// i and j are iterators for loops.
+	// i, j, and k are iterators for loops.
 	// sample counts how many samples have been read so far.
 	// lastQRS stores which was the last sample read when the last R sample was triggered.
 	// lastSlope stores the value of the squared slope when the last R sample was triggered.
 	// currentSlope helps calculate the max. square slope for the present sample.
 	// These are all long unsigned int so that very long signals can be read without messing the count.
-	long unsigned int i, j, sample = 0, lastQRS = 0, lastSlope = 0, currentSlope = 0;
+	long unsigned int i, j, k, sample = 0, lastQRS = 0, lastSlope = 0, currentSlope = 0;
 
 	// This variable is used as an index to work with the signal buffers. If the buffers still aren't
 	// completely filled, it shows the last filled position. Once the buffers are full, it'll always
@@ -291,6 +311,33 @@ void panTompkins()
 		if (signal[current] == NOSAMPLE)
 			break;
 		sample++; // Update sample counter
+		
+		#if MOVING_AVG_LEN > 1
+		//now that we've gathered the latest value, let's add it to the end of the 
+		//filter.
+		moving_avg_window[MOVING_AVG_LEN-1] = signal[current];
+		if(sample > (unsigned long int)MOVING_AVG_LEN && signal[current] != NOSAMPLE)
+		{
+			mov_avg = 0;
+			for(k = 0; k < MOVING_AVG_LEN; k++)
+			{
+				//Update the average value
+				//We could handle the initial edge case of samples < window size
+				//with an extra expression, though it will be negligible for small windows (the usual use-case)
+				//and would only improve the average within the very first couple samples, when we're
+				//expecting to drop at least one or two R peaks anyway
+				mov_avg += moving_avg_window[k]/MOVING_AVG_LEN;
+				//and shift the window values down one
+				if(k < MOVING_AVG_LEN-1)
+				{
+					moving_avg_window[k] = moving_avg_window[k+1];
+				}
+			}
+			//Now finally remove the windowed average value from
+			//the signal
+			signal[current] -= mov_avg;
+		}
+		#endif
 
 		// DC Block filter
 		// This was not proposed on the original paper.
@@ -616,4 +663,9 @@ void panTompkins()
 	// These last two lines must be deleted if you are not working with files.
 	fclose(fin);
 	fclose(fout);
+}
+
+int main()
+{
+	return 0;
 }

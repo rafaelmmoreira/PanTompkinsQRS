@@ -2,6 +2,12 @@
 
  Date: 
  Author: Thor Tronrud 
+ Changes:2022/08/31
+ - Added Pan-Tompkins file set up for use in embedded systems 
+ - For memory efficiency, this version will write to an array of the locations of the R peaks
+   instead of generating a full-sized list of 0s and 1s. Sample ECG is provided, as are two example
+   init functions that hot-swap the signal arrays, demonstrating that the system will retain its
+   "learning" between runs.
  Changes:2022/08/22
  - Added moving average filter to significantly improve convergence for ECGs with changing baselines 
  

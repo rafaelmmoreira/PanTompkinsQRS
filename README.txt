@@ -1,6 +1,10 @@
 An ANSI-C implementation of the Pan-Tompkins Real-Time QRS Detection Algorithm
+With Embedded Version
 Author: Rafael de Moura Moreira <rafaelmmoreira@gmail.com>
         https://github.com/rafaelmmoreira/PanTompkinsQRS
+		
+		Thorold Tronrud <ttronrud@starfishmedical.com>
+		https://github.com/ttronrud/PanTompkinsQRS
 License: MIT License
 Copyright (C) 2018-2022
 
@@ -11,6 +15,14 @@ your input file (which must be a list of integers in ASCII) and the name of your
 it's an existing file, it will be overwritten!).
 It will output a list of 0's and 1's, where 0 means a given sample didn't trigger a R-peak detection,
 while an 1 means it did.
+
+EMBEDDED ALGORITHM
+The embedded version of the algorithm has various components shifted around for use in more memory-limited systems,
+where you don't want an extensive buffer of input data. The filters have been moved globally, so the learning
+is retained in the state of the system, instead of being re-acquired each iteration. This is demonstrated with the
+two "init" functions, which swap the signal used as input. The two arrays are separate segments of the same recording
+and once the R peaks have been detected in one, the other is loaded. The system provides accurate peak locations
+immediately.
 
 MODIFYING THE CODE
 The code was designed to be easy to change and port: your input source (file, serial comms etc), the

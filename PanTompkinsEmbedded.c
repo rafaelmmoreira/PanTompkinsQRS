@@ -167,8 +167,10 @@
 
 #include "PanTompkinsEmbedded.h"
 #ifdef USING_PAN_TOMPKINS
-#include "stdlib.h"
-#include "stdbool.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
 
 #define NOSAMPLE -32000 // An indicator that there are no more samples to read. Use an impossible value for a sample.
 //#define FS 250          // Sampling frequency.
@@ -299,9 +301,9 @@ void PanTompkins_save_filterstate()
 	saved_filter_state.threshold_f1 = threshold_f1;
 	saved_filter_state.threshold_f2 = threshold_f2;
 	saved_filter_state.spk_i = spk_i;
-	saved_filter_state.spk_i = spk_f;
-	saved_filter_state.spk_i = npk_i;
-	saved_filter_state.spk_i = npk_f;
+	saved_filter_state.spk_f = spk_f;
+	saved_filter_state.npk_i = npk_i;
+	saved_filter_state.npk_f = npk_f;
 }
 
 void PanTompkins_load_filterstate()
@@ -323,11 +325,50 @@ void PanTompkins_load_filterstate()
 	threshold_f1 = saved_filter_state.threshold_f1;
 	threshold_f2 = saved_filter_state.threshold_f2;
 	spk_i = saved_filter_state.spk_i;
-	spk_f = saved_filter_state.spk_i;
-	npk_i = saved_filter_state.spk_i;
-	npk_f = saved_filter_state.spk_i;
+	spk_f = saved_filter_state.spk_f;
+	npk_i = saved_filter_state.npk_i;
+	npk_f = saved_filter_state.npk_f;
 }
-
+//Main as test-bed for filter state save/load
+//Also can show how Rs will converge with iterations
+//of PT
+/*
+void main()
+{
+    //Start with sig 1
+    //this will be the first learning iteration
+    PanTompkins_init(SIGNAL1, 2000);
+    PanTompkins();
+    printf("Signal 1 first run: \n");
+    for(int i = 0; i < next_r; i++)
+    {
+        printf("%d, ",Rs[i]);
+	}
+    printf("\n");
+    //Save the filter state
+    PanTompkins_save_filterstate();
+    //Reset the signal to test filterstate loading
+    PanTompkins_init(SIGNAL1, 2000);
+    //load the FS, run "fresh" on signal:
+    PanTompkins_load_filterstate();
+    PanTompkins();
+    printf("Signal 1 first run after load: \n");
+    for(int i = 0; i < next_r; i++)
+    {
+        printf("%d, ",Rs[i]);
+	}
+    printf("\n");
+    //and again! to test convergence:
+    PanTompkins_sigswap(SIGNAL1,2000,0,0);
+    PanTompkins();
+    printf("Signal 1 second run after load: \n");
+    for(int i = 0; i < next_r; i++)
+    {
+        printf("%d, ",Rs[i]);
+	}
+    printf("\n");
+}
+*/
 void PanTompkins_init(dataType *signal, uint32_t sig_len)
 {
 	//Direct PT to the correct input source
@@ -343,12 +384,13 @@ void PanTompkins_init(dataType *signal, uint32_t sig_len)
 	}
 	//reset all the detection thresholds
 	//and RR data
+    rravg1 = 0;
 	rravg2 = 0;
 	rrlow = 0;
 	rrhigh = 0;
 	rrmiss = 0;
 	//Thresholds for R peak detection
-	dataType peak_i = 0;
+	peak_i = 0;
 	peak_f = 0;
 	threshold_i1 = 0;
 	threshold_i2 = 0;

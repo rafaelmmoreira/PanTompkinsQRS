@@ -408,6 +408,10 @@ void PanTompkins_sigswap(dataType *new_signal, uint32_t new_sig_len, uint32_t ne
     Rs = new_Rs;
     RS_LEN = new_RS_LEN;
 	index_offset = new_index_offset;
+	for(int nr = r_index_start; nr < new_RS_LEN; ++nr)
+	{
+		Rs[nr] = -1; //set to invalid flag so it can be overwritten safely
+	}
 	if(r_index_start >= 0)
 	{
 		next_r = r_index_start;

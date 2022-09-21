@@ -23,6 +23,8 @@ is retained in the state of the system, instead of being re-acquired each iterat
 two "init" functions, which swap the signal used as input. The two arrays are separate segments of the same recording
 and once the R peaks have been detected in one, the other is loaded. The system provides accurate peak locations
 immediately.
+Compile ePT test configuration with:
+gcc -o [name] main.c PanTompkinsEmbedded.c 
 
 MODIFYING THE CODE
 The code was designed to be easy to change and port: your input source (file, serial comms etc), the

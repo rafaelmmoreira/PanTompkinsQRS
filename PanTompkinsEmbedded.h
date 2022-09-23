@@ -1,5 +1,5 @@
 /*
- * PanTompkins.h
+ * PanTompkinsEmbeddedStep.h
  *
  *  Created on: Aug 22, 2022
  *      Author: ttronrud
@@ -10,6 +10,11 @@
 
 
 #include <stdint.h>
+#include <stdbool.h>
+/*
+//or use
+typedef enum {false true} bool;
+*/
 typedef int dataType;
 
 
@@ -45,7 +50,7 @@ typedef struct {
  * so execution will continue where it left off. If using a new signal,
  * this might be intended. If it isn't, use sigswap.
  */
-void PanTompkins();
+bool PanTompkins_SingleStep(dataType inputSample);
 /*
  * Set the input signal, length
  * This also sets the array of previous RRs and detected R peaks to zero
@@ -53,18 +58,7 @@ void PanTompkins();
  * signal (from a new source). Shouldn't be necessary more than once,
  * but wiping all learning from a poor signal may be useful, who knows.
  */
-void PanTompkins_init(dataType *signal, uint32_t sig_len, int *Rs_out, int in_RS_LEN);
-/*
- * Swap the active signal source - maintaining buffers and RR averages
- * but directing the flow at a new signal. Not necessary if you are using the
- * original signal input as a ring buffer or some other system that gets
- * overwritten.
- * r_index_start sets the index of the R-peak location array that detected
- * peaks will be written at. If you have used the locations from the last run,
- * set to zero. If you are planning to do an RRI calculation from pieces of ECG,
- * use -1 (or the end of the last R array).
- */
-void PanTompkins_sigswap(dataType *new_signal, uint32_t new_sig_len, uint32_t new_index_offset, uint32_t r_index_start, int *new_Rs, int new_RS_LEN);
+void PanTompkins_init();
 
 /*
  * Saving and loading of the filterstate variable.

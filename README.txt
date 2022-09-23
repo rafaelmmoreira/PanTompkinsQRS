@@ -1,6 +1,7 @@
 An ANSI-C implementation of the Pan-Tompkins Real-Time QRS Detection Algorithm
 With Embedded Version
-Author: Rafael de Moura Moreira <rafaelmmoreira@gmail.com>
+Author: 
+        Rafael de Moura Moreira <rafaelmmoreira@gmail.com>
         https://github.com/rafaelmmoreira/PanTompkinsQRS
 		
 		Thorold Tronrud <ttronrud@starfishmedical.com>
@@ -19,10 +20,18 @@ while an 1 means it did.
 EMBEDDED ALGORITHM
 The embedded version of the algorithm has various components shifted around for use in more memory-limited systems,
 where you don't want an extensive buffer of input data. The filters have been moved globally, so the learning
-is retained in the state of the system, instead of being re-acquired each iteration. This is demonstrated with the
-two "init" functions, which swap the signal used as input. The two arrays are separate segments of the same recording
-and once the R peaks have been detected in one, the other is loaded. The system provides accurate peak locations
-immediately.
+is retained in the state of the system, instead of being re-acquired each iteration. The filter states have been
+moved globally, along with the data blocks, and the method itself has been un-looped, to be called
+for each new sample from within a separate main-loop.
+
+Once the filter and threshold state has converged and provides accurate results, the state can be saved, and potentially
+exported to a different filterstate struct. An external filterstate struct can be used to set the internal saved state,
+potentially allowing a previously-learned state to be stored in separate storage, to be loaded on startup.
+
+A "main.c" test configuration for the embedded system has been included, which demonstrates saving and loading
+of a filterstate to retain learning from a recording, despite a blind re-initialization of the signal. This
+test configuration includes two 4-second ECG samples.
+
 Compile ePT test configuration with:
 gcc -o [name] main.c PanTompkinsEmbedded.c 
 

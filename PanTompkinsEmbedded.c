@@ -628,7 +628,7 @@ bool PanTompkins_SingleStep(dataType inputSample)
 
 #else
 //If we're not using PT functionality, use as little memory as possible, just allow it to compile
-bool PanTompkins_SingleStep(dataType inputSample){}
+bool PanTompkins_SingleStep(dataType inputSample){ return false; }
 void PanTompkins_init(){}
 void PanTompkins_setsaved_filterstate(FilterState *fs);
 void PanTompkins_exportsaved_filterstate(FilterState *fs);

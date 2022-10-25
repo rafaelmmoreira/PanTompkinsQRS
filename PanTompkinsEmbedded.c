@@ -95,7 +95,7 @@
 #define BUFFSIZE 415    // The size of the buffers (in samples). Must fit more than 1.66 times an RR interval, which
 // typically could be around 1 second.
 
-#define DELAY 14		// Delay introduced by the filters. Filter only output samples after this one.
+#define DELAY 0		// Delay introduced by the filters. Filter only output samples after this one.
 // Set to 0 if you want to keep the delay. Fixing the delay results in DELAY less samples
 // in the final end result.
 #define  MOVING_AVG_LEN 5
@@ -147,7 +147,9 @@ int current;
 // currentSlope helps calculate the max. square slope for the present sample.
 // These are all uint32_t so that very long signals can be read without messing the count.
 uint32_t i, j, lastQRS = 0, lastSlope = 0, currentSlope = 0;
+#if MOVING_AVG_LEN > 0
 dataType last_avg[MOVING_AVG_LEN];
+#endif
 dataType avg = 0;
 
 // qrs tells whether there was a detection or not.
@@ -259,7 +261,12 @@ void PanTompkins_init()
 {
 	//Direct PT to the correct input source
 	sample = 0;
-
+    current = 0;
+    i = 0;
+    j = 0;
+    lastQRS = 0;
+    lastSlope = 0;
+    currentSlope = 0;
 	//reset all the detection thresholds
 	//and RR data
     rravg1 = 0;
@@ -284,7 +291,9 @@ void PanTompkins_init()
         rr1[i] = 0;
         rr2[i] = 0;
     }
+    #if MOVING_AVG_LEN > 0
     memset(last_avg,0,MOVING_AVG_LEN*sizeof(dataType));
+    #endif
 }
 
 bool PanTompkins_SingleStep(dataType inputSample)
@@ -309,6 +318,7 @@ bool PanTompkins_SingleStep(dataType inputSample)
 		current = sample;
 	}
 	signal[current] = inputSample;
+    #if MOVING_AVG_LEN > 0
 	//try an ultra-lightweight moving average
 	//set the latest value
 	last_avg[MOVING_AVG_LEN-1] = signal[current];
@@ -326,6 +336,7 @@ bool PanTompkins_SingleStep(dataType inputSample)
 		signal[current] -= avg;
 
 	}
+    #endif
 	// If no sample was read, stop processing!
 	if (signal[current] == NOSAMPLE)
 		return false;

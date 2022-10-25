@@ -15,7 +15,7 @@
 //or use
 typedef enum {false true} bool;
 */
-typedef int dataType;
+typedef float dataType;
 
 
 //A struct definition for the filter state
